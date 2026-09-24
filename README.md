@@ -1,22 +1,22 @@
 # nia-lsp
 
-Начальный LSP-сервер для языка Nia на Rust и
+An initial LSP server for the Nia language, built with Rust and
 [tower-lsp-server](https://docs.rs/tower-lsp-server/0.23.0/).
-Использует парсер и проверку типов из соседнего репозитория `nialang`.
+It uses the parser and type checker from the neighboring `nialang` repository.
 
-## Возможности
+## Features
 
-- Обмен сообщениями LSP через stdin/stdout.
-- Инициализация и завершение сеанса (`initialize`, `shutdown`, `exit`).
-- Хранение открытых документов в памяти, полная синхронизация текста
+- LSP communication over stdin/stdout.
+- Session initialization and termination (`initialize`, `shutdown`, `exit`).
+- In-memory storage of open documents with full text synchronization
   (`didOpen`, `didChange`, `didClose`).
-- Публикация диагностики при открытии и изменении, удаление при закрытии.
-- Проверка синтаксиса, объявлений и типов без генерации LLVM IR и запуска кода.
-- Проверка несохранённых изменений; диагностике передаётся версия документа.
+- Diagnostics published when documents are opened or changed, and cleared when closed.
+- Syntax, declaration, and type checking without generating LLVM IR or running code.
+- Analysis of unsaved changes, with the document version included in diagnostics.
 
-## Сборка и запуск
+## Build and run
 
-Нужен Rust с поддержкой edition 2024. Репозитории должны лежать рядом:
+Requires Rust with edition 2024 support. The repositories must be siblings:
 
 ```text
 nia/
@@ -24,33 +24,33 @@ nia/
 └── nia-lsp/
 ```
 
-Из `nia-lsp`:
+From `nia-lsp`:
 
 ```sh
 cargo build --release
 ./target/release/nia-lsp
 ```
 
-Сервер ожидает LSP-сообщения от редактора. Отсутствие вывода при ручном
-запуске нормально. stdout занят протоколом; для будущих логов используйте stderr.
-Для работы сервера не нужны `clang` и `qir-runner`.
+The server waits for LSP messages from an editor. No output is expected when
+started manually. stdout is reserved for the protocol; use stderr for any future logging.
+The server does not require `clang` or `qir-runner`.
 
-В LSP-клиенте редактора укажите:
+Configure your editor's LSP client with:
 
-- команду: абсолютный путь к `nia-lsp/target/release/nia-lsp`;
-- аргументы: пустой список;
-- транспорт: stdio;
-- идентификатор языка: `nia`, расширение файлов: `.nia`.
+- Command: the absolute path to `nia-lsp/target/release/nia-lsp`.
+- Arguments: an empty list.
+- Transport: stdio.
+- Language ID: `nia`; file extension: `.nia`.
 
-Готовый плагин редактора в этот репозиторий пока не входит.
+This repository does not yet include an editor plugin.
 
-## Проверка на примерах без редактора
+## Check examples without an editor
 
-Скрипт `scripts/check.py` запускает настоящий сервер и отправляет ему LSP-сообщения:
-инициализацию, открытие файлов, закрытие файлов и завершение сеанса.
-Он печатает полученную диагностику. Нужен Python 3.9+ без дополнительных пакетов.
+The `scripts/check.py` script starts the actual server and sends LSP messages
+to initialize the session, open and close files, and terminate the session.
+It prints the diagnostics it receives. Requires Python 3.9+ with no extra packages.
 
-Из `nia-lsp`:
+From `nia-lsp`:
 
 ```sh
 cargo build --locked
@@ -59,56 +59,57 @@ python3 scripts/check.py examples/type_error.nia examples/syntax_error.nia
 python3 scripts/check.py ../nialang/examples/sample_floats.nia
 ```
 
-Для корректного файла выводится `OK (no diagnostics)`, для ошибочного — путь,
-строка, столбец и сообщение сервера. В выводе строки и столбцы отсчитываются
-от единицы: позиция `1:1` для ошибок парсера и типов отражает текущее ограничение
-координат в компиляторе.
+For a valid file, the script prints `OK (no diagnostics)`. For a file with errors,
+it prints the path, line, column, and server message. Lines and columns in the
+output are numbered from one: position `1:1` for parser and type errors reflects
+the compiler's current source-location limitation.
 
-Скрипт проверяет код, программа Nia при этом не выполняется.
-Код выхода: `0` — ошибок нет, `1` — сервер сообщил ошибки в Nia-коде,
-`2` — ошибка запуска или обмена сообщениями. Файлы `type_error.nia` и
-`syntax_error.nia` содержат ошибки намеренно.
+The script checks the code without executing the Nia program.
+Exit codes: `0` means no errors, `1` means the server reported errors in the Nia code,
+and `2` means a startup or communication error. The files `type_error.nia` and
+`syntax_error.nia` contain intentional errors.
 
-Можно передать любой `.nia`-файл или несколько файлов. Если бинарник находится
-в другом месте, укажите `--server /path/to/nia-lsp`.
+You can pass any `.nia` file or multiple files. If the server binary is located
+elsewhere, use `--server /path/to/nia-lsp`.
 
-Чтобы проверить получение ошибки и её исчезновение после изменения текста
-в одном LSP-сеансе, запустите существующий интеграционный тест:
+To verify that an error is reported and then cleared after a text change
+within the same LSP session, run the existing integration test:
 
 ```sh
 cargo test --locked --test stdio -- --nocapture
 ```
 
-## Структура
+## Project structure
 
 ```text
-src/main.rs       — запуск stdio-транспорта
-src/server.rs     — обработчики LSP и открытые документы
-src/analysis.rs   — адаптер диагностики компилятора
-tests/stdio.rs    — проверка полного сеанса через настоящий процесс сервера
-scripts/check.py — ручная проверка .nia-файлов через LSP
-examples/        — корректный код и намеренные ошибки для демонстрации
+src/main.rs      — stdio transport startup
+src/server.rs    — LSP handlers and open documents
+src/analysis.rs  — compiler diagnostics adapter
+tests/stdio.rs   — full session test using an actual server process
+scripts/check.py — manual checking of .nia files over LSP
+examples/        — valid code and intentional errors for demonstration
 ```
 
-## Ограничения начальной версии
+## Initial limitations
 
-Парсер и проверка типов `nialang` возвращают ошибки без диапазонов исходного
-текста, поэтому их диагностика привязана к началу файла (LSP-позиция `0:0`).
-Лексическая проверка неподдерживаемых символов и незакрытых строк в адаптере
-указывает диапазон в UTF-16. Следующий шаг — добавить исходные диапазоны
-в API компилятора и использовать их здесь.
+The `nialang` parser and type checker return errors without source ranges,
+so their diagnostics point to the start of the file (LSP position `0:0`).
+The adapter's lexical checks for unsupported characters and unterminated strings
+report ranges in UTF-16. The next step is to add source ranges to the compiler API
+and use them here.
 
-Анализируется каждый открытый документ отдельно. Вложенные модули `mod name { ... }`
-поддерживаются; загрузка модулей из других файлов через `mod name;` и анализ
-всего проекта ещё не реализованы. Ошибка синтаксиса или объявлений останавливает
-анализ файла, затем проверка типов сообщает первую ошибку каждой функции.
+Each open document is analyzed separately. Inline modules declared with
+`mod name { ... }` are supported; loading modules from other files via `mod name;`
+and project-wide analysis are not yet implemented. A syntax or declaration error
+stops analysis of the file. If those checks pass, type checking reports the first
+error in each function.
 
-Используется полная синхронизация: редактор присылает весь текст при изменении.
-Сообщения обрабатываются последовательно, чтобы сохранить порядок обновлений
-и диагностики. Фоновый анализ, отмена запросов, автодополнение, hover,
-переход к определению и форматирование — будущие расширения.
+Full synchronization is used: the editor sends the entire text on each change.
+Messages are processed sequentially to preserve the order of updates and diagnostics.
+Background analysis, request cancellation, completion, hover, go to definition,
+and formatting are future extensions.
 
-## Проверки
+## Checks
 
 ```sh
 cargo fmt --check
