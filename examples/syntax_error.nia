@@ -1,0 +1,3 @@
+// Intentionally invalid: the function body is missing its closing brace.
+fn main() i32 {
+    42

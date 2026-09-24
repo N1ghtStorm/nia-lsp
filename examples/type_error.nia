@@ -1,0 +1,4 @@
+// Intentionally invalid: this function must return i32.
+fn main() i32 {
+    true
+}
